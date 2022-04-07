@@ -361,9 +361,9 @@ patch_and_check_dependent() {
     popd >/dev/null
 
     echo "Patching $comp companion into $dependent"
+    # extra slash works around https://github.com/rust-lang/cargo/issues/5478
     diener patch \
       --target "https://gitlab.parity.io/$org/$comp" \
-      # extra slash works around https://github.com/rust-lang/cargo/issues/5478
       --point-to-git "https://gitlab.parity.io//$org/$comp" \
       --point-to-git-commit "$post_patches_sha" \
       --crates-to-patch "$companions_dir/$comp" \
@@ -371,9 +371,9 @@ patch_and_check_dependent() {
   done
 
   echo "Patching $this_repo into $dependent"
+  # extra slash works around https://github.com/rust-lang/cargo/issues/5478
   diener patch \
     --target "$org_github_prefix/$this_repo" \
-    # extra slash works around https://github.com/rust-lang/cargo/issues/5478
     --point-to-git "$org_github_prefix//$this_repo" \
     --point-to-git-commit "$CI_COMMIT_SHA" \
     --crates-to-patch "$this_repo_dir" \
