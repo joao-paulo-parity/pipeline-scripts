@@ -36,6 +36,7 @@ this_repo_diener_arg="$3"
 dependent_repo="$4"
 github_api_token="$5"
 update_crates_on_default_branch="$6"
+gitlab_push_token="$7"
 
 this_repo_dir="$PWD"
 companions_dir="$this_repo_dir/companions"
@@ -250,7 +251,9 @@ process_pr_description_line() {
     # Clone the companion's branch
     echo "Cloning the companion $repo#$pr_number (branch $ref, SHA $sha)"
     git fetch --depth=$merge_ancestor_max_depth origin "pull/$pr_number/head:$ref"
-    git checkout "$ref"
+
+    # custom pattern for companion detection
+    git checkout "$ref" -b "$pr_number"
 
 echo "
 Attempting to merge $repo#$pr_number with master after fetching its last $merge_ancestor_max_depth commits.
@@ -338,25 +341,35 @@ patch_and_check_dependent() {
 
   for comp in "${dependent_companions[@]}"; do
     echo "Patching $this_repo into the $comp companion, which is a dependency of $dependent_repo, assuming $comp also depends on $this_repo. Reasoning: if a companion was referenced in this PR or a companion of this PR, then it probably has a dependency on this PR, since PR descriptions are processed starting from the dependencies."
+
     diener patch \
       --target "$org_github_prefix/$this_repo" \
+      --point-to-git "$org_github_prefix/$this_repo" \
+      --point-to-git-commit "$CI_COMMIT_SHA" \
       --crates-to-patch "$this_repo_dir" \
       --path "$companions_dir/$comp/Cargo.toml"
 
     echo "Patching $comp companion into $dependent"
+    pushd "$companions_dir/$comp" >/dev/null
     diener patch \
       --target "$org_github_prefix/$comp" \
+      --point-to-git "$org_github_prefix/$comp" \
+      --point-to-git-commit "$(git rev-parse HEAD)" \
       --crates-to-patch "$companions_dir/$comp" \
       --path "Cargo.toml"
+    popd >/dev/null
   done
 
   echo "Patching $this_repo into $dependent"
   diener patch \
     --target "$org_github_prefix/$this_repo" \
+    --point-to-git "$org_github_prefix/$this_repo" \
+    --point-to-git-commit "$CI_COMMIT_SHA" \
     --crates-to-patch "$this_repo_dir" \
     --path "Cargo.toml"
 
-  eval "${COMPANION_CHECK_COMMAND:-cargo check --all-targets --workspace}"
+  git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$dependent.git"
+  git push -o ci.variable="COMPANION_DEPENDENCY=$this_repo:$CI_COMMIT_SHA" gitlab HEAD
 
   popd >/dev/null
 }
