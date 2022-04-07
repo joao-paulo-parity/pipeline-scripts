@@ -405,7 +405,7 @@ main() {
     echo "Cloning $dependent_repo directly as it was not detected as a companion"
     dependent_repo_dir="$this_repo_dir/$dependent_repo"
     git clone --depth=1 "https://github.com/$org/$dependent_repo.git" "$dependent_repo_dir"
-    push "$dependent_repo_dir" >/dev/null
+    pushd "$dependent_repo_dir" >/dev/null
     git branch -m "ci/integration-$this_repo/$CI_COMMIT_SHA"
     popd >/dev/null
   fi
