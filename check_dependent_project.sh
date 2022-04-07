@@ -368,8 +368,17 @@ patch_and_check_dependent() {
     --crates-to-patch "$this_repo_dir" \
     --path "Cargo.toml"
 
+  local pre_patches_sha
+  pre_patches_sha="$(git rev-parse HEAD)"
+
+  git add .
+  git commit -m 'commit patches'
+
   git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$dependent.git"
-  git push -o ci.variable="COMPANION_DEPENDENCY=$this_repo:$CI_COMMIT_SHA" gitlab HEAD
+  git push \
+    -o ci.variable="COMPANION_DEPENDENCY=$this_repo:$CI_COMMIT_SHA" \
+    -o ci.variable="TARGET_STATUS_SHA=$pre_patches_sha" \
+    gitlab HEAD
 
   popd >/dev/null
 }
