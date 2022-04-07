@@ -251,9 +251,7 @@ process_pr_description_line() {
     # Clone the companion's branch
     echo "Cloning the companion $repo#$pr_number (branch $ref, SHA $sha)"
     git fetch --depth=$merge_ancestor_max_depth origin "pull/$pr_number/head:$ref"
-
-    # custom pattern for companion detection
-    git checkout "$ref" -b "$pr_number"
+    git checkout "$ref"
 
 echo "
 Attempting to merge $repo#$pr_number with master after fetching its last $merge_ancestor_max_depth commits.
@@ -342,6 +340,8 @@ patch_and_check_dependent() {
   for comp in "${dependent_companions[@]}"; do
     echo "Patching $this_repo into the $comp companion, which is a dependency of $dependent_repo, assuming $comp also depends on $this_repo. Reasoning: if a companion was referenced in this PR or a companion of this PR, then it probably has a dependency on this PR, since PR descriptions are processed starting from the dependencies."
 
+    pushd "$companions_dir/$comp" >/dev/null
+
     diener patch \
       --target "$org_github_prefix/$this_repo" \
       --point-to-git "$org_github_prefix/$this_repo" \
@@ -349,15 +349,24 @@ patch_and_check_dependent() {
       --crates-to-patch "$this_repo_dir" \
       --path "$companions_dir/$comp/Cargo.toml"
 
+    git add .
+    git commit -m 'commit patches'
+    local post_patches_sha
+    post_patches_sha="$(git rev-parse HEAD)"
+
+    git branch -m "ci/integration/$post_patches_sha"
+    git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$comp.git"
+    git push -o ci.skip gitlab HEAD
+
+    popd >/dev/null
+
     echo "Patching $comp companion into $dependent"
-    pushd "$companions_dir/$comp" >/dev/null
     diener patch \
-      --target "$org_github_prefix/$comp" \
-      --point-to-git "$org_github_prefix/$comp" \
-      --point-to-git-commit "$(git rev-parse HEAD)" \
+      --target "https://gitlab.parity.io/$org/$comp" \
+      --point-to-git "https://gitlab.parity.io/$org/$comp" \
+      --point-to-git-commit "$post_patches_sha" \
       --crates-to-patch "$companions_dir/$comp" \
       --path "Cargo.toml"
-    popd >/dev/null
   done
 
   echo "Patching $this_repo into $dependent"
@@ -373,6 +382,10 @@ patch_and_check_dependent() {
 
   git add .
   git commit -m 'commit patches'
+
+  local post_patches_sha
+  pre_patches_sha="$(git rev-parse HEAD)"
+  git branch -m "ci/integration/$post_patches_sha"
 
   git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$dependent.git"
   git push \
@@ -414,9 +427,6 @@ main() {
     echo "Cloning $dependent_repo directly as it was not detected as a companion"
     dependent_repo_dir="$this_repo_dir/$dependent_repo"
     git clone --depth=1 "https://github.com/$org/$dependent_repo.git" "$dependent_repo_dir"
-    pushd "$dependent_repo_dir" >/dev/null
-    git branch -m "ci/integration-$this_repo/$CI_COMMIT_SHA"
-    popd >/dev/null
   fi
 
   patch_and_check_dependent "$dependent_repo" "$dependent_repo_dir"
