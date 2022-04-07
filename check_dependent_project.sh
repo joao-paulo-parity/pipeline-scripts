@@ -384,7 +384,7 @@ patch_and_check_dependent() {
   git commit -m 'commit patches'
 
   local post_patches_sha
-  pre_patches_sha="$(git rev-parse HEAD)"
+  post_patches_sha="$(git rev-parse HEAD)"
   git branch -m "ci/integration/$post_patches_sha"
 
   git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$dependent.git"
