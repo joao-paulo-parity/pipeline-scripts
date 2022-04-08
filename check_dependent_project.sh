@@ -351,11 +351,16 @@ patch_and_check_dependent() {
       --path "$companions_dir/$comp/Cargo.toml"
 
     git add .
-    git commit -m 'commit patches'
+    git commit -m "
+dependency: $this_repo
+dependency_sha: $CI_COMMIT_SHA
+dependency_ref: $CI_COMMIT_REF_NAME
+companion_of: $dependent_repo
+"
     local post_patches_sha
     post_patches_sha="$(git rev-parse HEAD)"
 
-    git branch -m "this_repo-$CI_COMMIT_REF-$post_patches_sha"
+    git branch -m "companion-requirement-$post_patches_sha"
     git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$comp.git"
     git push -o ci.skip gitlab HEAD
 
@@ -387,12 +392,13 @@ patch_and_check_dependent() {
   git commit -m "
 dependency: $this_repo
 dependency_sha: $CI_COMMIT_SHA
+dependency_ref: $CI_COMMIT_REF_NAME
 pre_patches_sha: $pre_patches_sha
 "
 
   local post_patches_sha
   post_patches_sha="$(git rev-parse HEAD)"
-  local branch_name="$this_repo-$CI_COMMIT_REF-$pre_patches_sha"
+  local branch_name="$this_repo-$CI_COMMIT_REF_NAME-$pre_patches_sha"
   git branch -m "$branch_name"
 
   git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$dependent.git"
@@ -408,7 +414,7 @@ pre_patches_sha: $pre_patches_sha
     | jq -r ".length"
   )"
   if [ "$open_mrs_count" -eq 0 ]; then
-    local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF+sha+$CI_COMMIT_SHA"
+    local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF_NAME+sha+$CI_COMMIT_SHA"
     curl \
       -sSL \
       -H "PRIVATE-TOKEN: $gitlab_access_token" \
