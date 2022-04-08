@@ -360,7 +360,7 @@ companion_of: $dependent_repo
     local post_patches_sha
     post_patches_sha="$(git rev-parse HEAD)"
 
-    git branch -m "companion-requirement-$post_patches_sha"
+    git branch -m "companion-requirement,$post_patches_sha"
     git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$comp.git"
     git push -o ci.skip gitlab HEAD
 
@@ -398,20 +398,20 @@ pre_patches_sha: $pre_patches_sha
 
   local post_patches_sha
   post_patches_sha="$(git rev-parse HEAD)"
-  local branch_name="$this_repo-$CI_COMMIT_REF_NAME-$pre_patches_sha"
+  local branch_name="$this_repo,$CI_COMMIT_REF_NAME,$pre_patches_sha"
   git branch -m "$branch_name"
 
   git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$dependent.git"
   git push gitlab HEAD
 
-  local merge_requests_api="$gitlab_api/projects/$org/$this_repo/merge_requests"
-  local mr_query_parameters="source_branch=${branch_name}&target_branch=master"
+  local dependent_mrs_api="$gitlab_api/projects/$org%2F$dependent_repo/merge_requests"
+  local dependent_mr_parameters="source_branch=${branch_name}&target_branch=master"
   local open_mrs_count
   open_mrs_count="$(curl \
     -sSL \
     -H "PRIVATE-TOKEN: $gitlab_access_token" \
-    "${merge_requests_api}?state=opened&$mr_query_parameters" \
-    | jq -r ".length"
+    "${dependent_mrs_api}?state=opened&${dependent_mr_parameters}" \
+    | jq length
   )"
   if [ "$open_mrs_count" -eq 0 ]; then
     local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF_NAME+sha+$CI_COMMIT_SHA"
@@ -419,7 +419,7 @@ pre_patches_sha: $pre_patches_sha
       -sSL \
       -H "PRIVATE-TOKEN: $gitlab_access_token" \
       -X POST \
-      "${merge_requests_api}?${mr_query_parameters}&title=$mr_title"
+      "${dependent_mrs_api}?${dependent_mr_parameters}&title=${mr_title}"
   fi
 
   popd >/dev/null
