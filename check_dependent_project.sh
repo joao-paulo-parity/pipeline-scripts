@@ -36,7 +36,7 @@ this_repo_diener_arg="$3"
 dependent_repo="$4"
 github_api_token="$5"
 update_crates_on_default_branch="$6"
-gitlab_push_token="$7"
+gitlab_access_token="$7"
 
 this_repo_dir="$PWD"
 companions_dir="$this_repo_dir/companions"
@@ -355,13 +355,13 @@ patch_and_check_dependent() {
     post_patches_sha="$(git rev-parse HEAD)"
 
     git branch -m "ci/integration/$post_patches_sha"
-    git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$comp.git"
+    git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$comp.git"
     git push -o ci.skip gitlab HEAD
 
     popd >/dev/null
 
     echo "Patching $comp companion into $dependent"
-    # extra slash works around https://github.com/rust-lang/cargo/issues/5478
+    # extra slash in --point-to-git works around https://github.com/rust-lang/cargo/issues/5478
     diener patch \
       --target "https://gitlab.parity.io/$org/$comp" \
       --point-to-git "https://gitlab.parity.io//$org/$comp" \
@@ -371,7 +371,7 @@ patch_and_check_dependent() {
   done
 
   echo "Patching $this_repo into $dependent"
-  # extra slash works around https://github.com/rust-lang/cargo/issues/5478
+  # extra slash in --point-to-git works around https://github.com/rust-lang/cargo/issues/5478
   diener patch \
     --target "$org_github_prefix/$this_repo" \
     --point-to-git "$org_github_prefix//$this_repo" \
@@ -383,17 +383,18 @@ patch_and_check_dependent() {
   pre_patches_sha="$(git rev-parse HEAD)"
 
   git add .
-  git commit -m 'commit patches'
+  git commit -m "
+dependency: $this_repo
+dependency_sha: $CI_COMMIT_SHA
+pre_patches_sha: $pre_patches_sha
+"
 
   local post_patches_sha
   post_patches_sha="$(git rev-parse HEAD)"
   git branch -m "ci/integration/$post_patches_sha"
 
-  git remote add gitlab "https://token:$gitlab_push_token@gitlab.parity.io/$org/$dependent.git"
-  git push \
-    -o ci.variable="COMPANION_DEPENDENCY=$this_repo:$CI_COMMIT_SHA" \
-    -o ci.variable="TARGET_STATUS_SHA=$pre_patches_sha" \
-    gitlab HEAD
+  git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$dependent.git"
+  git push -o ci.skip gitlab HEAD
 
   popd >/dev/null
 }
