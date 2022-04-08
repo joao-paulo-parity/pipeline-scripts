@@ -41,6 +41,7 @@ gitlab_access_token="$7"
 this_repo_dir="$PWD"
 companions_dir="$this_repo_dir/companions"
 github_api="https://api.github.com"
+gitlab_api="https://gitlab.parity.io/api/v4"
 org_github_prefix="https://github.com/$org"
 org_crates_prefix="git+$org_github_prefix"
 
@@ -391,10 +392,29 @@ pre_patches_sha: $pre_patches_sha
 
   local post_patches_sha
   post_patches_sha="$(git rev-parse HEAD)"
-  git branch -m "ci/integration/$post_patches_sha"
+  local branch_name="ci/integration/$post_patches_sha"
+  git branch -m "$branch_name"
 
   git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$dependent.git"
   git push -o ci.skip gitlab HEAD
+
+  local merge_requests_api="$gitlab_api/projects/$org/$repo/merge_requests"
+  local mr_query_parameters="source_branch=${branch_name}&target_branch=master"
+  local open_mrs_count
+  open_mrs_count="$(curl \
+    -sSL \
+    -H "PRIVATE-TOKEN: $gitlab_access_token" \
+    "${merge_requests_api}?state=opened&$mr_query_parameters" \
+    | jq -r ".length"
+  )"
+  if [ "$open_prs_count" -eq 0 ]; then
+    local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF+sha+$CI_COMMIT_SHA"
+    curl \
+      -sSL \
+      -H "Authorization: token $gitlab_access_token" \
+      -X POST \
+      "$merge_requests_api?${mr_query_parameters}&title=$mr_title"
+  fi
 
   popd >/dev/null
 }
