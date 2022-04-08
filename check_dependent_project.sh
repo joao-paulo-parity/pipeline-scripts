@@ -355,7 +355,7 @@ patch_and_check_dependent() {
     local post_patches_sha
     post_patches_sha="$(git rev-parse HEAD)"
 
-    git branch -m "ci-integration-$post_patches_sha"
+    git branch -m "this_repo-$CI_COMMIT_REF-$post_patches_sha"
     git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$comp.git"
     git push -o ci.skip gitlab HEAD
 
@@ -392,13 +392,13 @@ pre_patches_sha: $pre_patches_sha
 
   local post_patches_sha
   post_patches_sha="$(git rev-parse HEAD)"
-  local branch_name="ci-integration-$pre_patches_sha"
+  local branch_name="$this_repo-$CI_COMMIT_REF-$pre_patches_sha"
   git branch -m "$branch_name"
 
   git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$dependent.git"
   git push gitlab HEAD
 
-  local merge_requests_api="$gitlab_api/projects/$org/$repo/merge_requests"
+  local merge_requests_api="$gitlab_api/projects/$org/$this_repo/merge_requests"
   local mr_query_parameters="source_branch=${branch_name}&target_branch=master"
   local open_mrs_count
   open_mrs_count="$(curl \
@@ -407,7 +407,7 @@ pre_patches_sha: $pre_patches_sha
     "${merge_requests_api}?state=opened&$mr_query_parameters" \
     | jq -r ".length"
   )"
-  if [ "$open_prs_count" -eq 0 ]; then
+  if [ "$open_mrs_count" -eq 0 ]; then
     local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF+sha+$CI_COMMIT_SHA"
     curl \
       -sSL \
