@@ -411,9 +411,9 @@ pre_patches_sha: $pre_patches_sha
     local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF+sha+$CI_COMMIT_SHA"
     curl \
       -sSL \
-      -H "Authorization: token $gitlab_access_token" \
+      -H "PRIVATE-TOKEN: $gitlab_access_token" \
       -X POST \
-      "$merge_requests_api?${mr_query_parameters}&title=$mr_title"
+      "${merge_requests_api}?${mr_query_parameters}&title=$mr_title"
   fi
 
   popd >/dev/null
