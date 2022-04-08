@@ -355,7 +355,7 @@ patch_and_check_dependent() {
     local post_patches_sha
     post_patches_sha="$(git rev-parse HEAD)"
 
-    git branch -m "ci/integration/$post_patches_sha"
+    git branch -m "ci-integration-$post_patches_sha"
     git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$comp.git"
     git push -o ci.skip gitlab HEAD
 
@@ -392,11 +392,11 @@ pre_patches_sha: $pre_patches_sha
 
   local post_patches_sha
   post_patches_sha="$(git rev-parse HEAD)"
-  local branch_name="ci/integration/$post_patches_sha"
+  local branch_name="ci-integration-$pre_patches_sha"
   git branch -m "$branch_name"
 
   git remote add gitlab "https://token:$gitlab_access_token@gitlab.parity.io/$org/$dependent.git"
-  git push -o ci.skip gitlab HEAD
+  git push gitlab HEAD
 
   local merge_requests_api="$gitlab_api/projects/$org/$repo/merge_requests"
   local mr_query_parameters="source_branch=${branch_name}&target_branch=master"
