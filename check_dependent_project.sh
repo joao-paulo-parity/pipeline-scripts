@@ -414,7 +414,7 @@ pre_patches_sha: $pre_patches_sha
     | jq length
   )"
   if [ "$open_mrs_count" -eq 0 ]; then
-    local mr_title="Integration+for+$this_repo+ref+$CI_COMMIT_REF_NAME+sha+$CI_COMMIT_SHA"
+    local mr_title="Companion+$this_repo+$CI_COMMIT_REF_NAME+$CI_COMMIT_SHA"
     curl \
       -sSL \
       -H "PRIVATE-TOKEN: $gitlab_access_token" \
