@@ -44,8 +44,8 @@ companion_overrides=("${out[@]}")
 set -x
 this_repo_dir="$PWD"
 this_repo="$(basename "$this_repo_dir")"
-companions_dir="$this_repo_dir/companions"
-extra_dependencies_dir="$this_repo_dir/extra_dependencies"
+companions_dir="$this_repo_dir/.companions"
+extra_dependencies_dir="$this_repo_dir/.extra_dependencies"
 github_api="https://api.github.com"
 github_graphql_api="https://api.github.com/graphql"
 org_github_prefix="https://github.com/$org"
