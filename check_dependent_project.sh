@@ -495,6 +495,11 @@ main() {
   git config --global user.email '<>'
   git config --global pull.rebase false
 
+  # temporary
+  mkdir -p "$HOME/.cargo/bin"
+  cargo install --git https://github.com/joao-paulo-parity/diener --branch all-packages
+  export PATH="$HOME/.cargo/bin:$PATH"
+
   # process_pr_description calls itself for each companion in the description on
   # each detected companion PR, effectively considering all companion references
   # on all PRs
