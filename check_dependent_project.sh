@@ -394,6 +394,7 @@ patch_and_check_dependent() {
 
   pushd "$dependent_repo_dir" >/dev/null
 
+  # temporary
   git reset --hard b1a5d70256f7344a23bedaa72924b6559b187845
 
   if [ "${has_overridden_dependent_ref:-}" ]; then
