@@ -51,7 +51,6 @@ github_api="https://api.github.com"
 github_graphql_api="https://api.github.com/graphql"
 org_github_prefix="https://github.com/$org"
 org_crates_prefix="git+$org_github_prefix"
-diener="RUST_LOG=info diener"
 set +x
 
 our_crates=()
@@ -420,13 +419,13 @@ patch_and_check_dependent() {
         "$extra_dependencies_dir/$extra_dependency"
 
       echo "Patching extra dependency $extra_dependency into $this_repo_dir"
-      $diener patch \
+      diener patch \
         --target "$org_github_prefix/$extra_dependency" \
         --crates-to-patch "$extra_dependencies_dir/$extra_dependency" \
         --path "$this_repo_dir/Cargo.toml"
 
       echo "Patching extra dependency $extra_dependency into $dependent"
-      $diener patch \
+      diener patch \
         --target "$org_github_prefix/$extra_dependency" \
         --crates-to-patch "$extra_dependencies_dir/$extra_dependency" \
         --path Cargo.toml
@@ -436,7 +435,7 @@ patch_and_check_dependent() {
   # Patch this repository (the dependency) into the dependent for the sake of
   # being able to test how the dependency graph will behave after the merge
   echo "Patching $this_repo into $dependent"
-  $diener patch \
+  diener patch \
     --target "$org_github_prefix/$this_repo" \
     --crates-to-patch "$this_repo_dir" \
     --path Cargo.toml
@@ -463,13 +462,13 @@ patch_and_check_dependent() {
       # dependency graph becomes how it should end up after all PRs are merged
       for comp in "${dependencies_among_companions[@]}"; do
         echo "Patching $this_repo into the $comp companion, which is a dependency of $dependent, assuming $comp also depends on $this_repo. Reasoning: if a companion was referenced in this PR or a companion of this PR, then it probably has a dependency on this PR, since PR descriptions are processed starting from the dependencies."
-        $diener patch \
+        diener patch \
           --target "$org_github_prefix/$this_repo" \
           --crates-to-patch "$this_repo_dir" \
           --path "$companions_dir/$comp/Cargo.toml"
 
         echo "Patching $comp companion into $dependent"
-        $diener patch \
+        diener patch \
           --target "$org_github_prefix/$comp" \
           --crates-to-patch "$companions_dir/$comp" \
           --path Cargo.toml
