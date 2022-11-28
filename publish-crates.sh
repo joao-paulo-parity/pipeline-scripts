@@ -389,6 +389,8 @@ main() {
   local spub_verify_from="${SPUB_VERIFY_FROM:-}"
   # shellcheck disable=SC2153 # lowercase name
   local spub_after_publish_delay="${SPUB_AFTER_PUBLISH_DELAY:-}"
+  # shellcheck disable=SC2153 # lowercase name
+  local spub_exclude="${SPUB_EXCLUDE:-}"
   local this_branch="$CI_COMMIT_REF_NAME"
 
   mkdir -p "$tmp"
@@ -439,12 +441,27 @@ main() {
   if [ "$spub_start_from" ]; then
     args+=(--start-from "$spub_start_from")
   fi
-  if [ "$spub_publish_only" ]; then
-    args+=(-c "$spub_publish_only")
-  fi
+
+  while IFS= read -r crate; do
+    if [[ "$crate" =~ [^[:space:]]+ ]]; then
+      args+=(-c "${BASH_REMATCH[0]}")
+    else
+      die "Crate name had unexpected format: $crate"
+    fi
+  done < <(echo "$spub_publish_only") || :
+
+  while IFS= read -r crate; do
+    if [[ "$crate" =~ [^[:space:]]+ ]]; then
+      args+=(-e "${BASH_REMATCH[0]}")
+    else
+      die "Crate name had unexpected format: $crate"
+    fi
+  done < <(echo "$spub_exclude") || :
+
   if [ "$spub_verify_from" ]; then
     args+=(-v "$spub_verify_from")
   fi
+
   if [ "$spub_after_publish_delay" ]; then
     args+=(--after-publish-delay "$spub_after_publish_delay")
   fi
