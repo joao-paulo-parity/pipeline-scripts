@@ -443,6 +443,9 @@ main() {
   fi
 
   while IFS= read -r crate; do
+    if [ ! "$crate" ]; then
+      continue
+    fi
     if [[ "$crate" =~ [^[:space:]]+ ]]; then
       args+=(-c "${BASH_REMATCH[0]}")
     else
@@ -451,6 +454,9 @@ main() {
   done < <(echo "$spub_publish")
 
   while IFS= read -r crate; do
+    if [ ! "$crate" ]; then
+      continue
+    fi
     if [[ "$crate" =~ [^[:space:]]+ ]]; then
       args+=(-e "${BASH_REMATCH[0]}")
     else
