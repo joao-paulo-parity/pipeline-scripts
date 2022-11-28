@@ -472,6 +472,8 @@ main() {
     args+=(--after-publish-delay "$spub_after_publish_delay")
   fi
 
+  args+=(--start-from kitchensink-runtime --verify-from kitchensink-runtime)
+
   subpub "${args[@]}"
 }
 
