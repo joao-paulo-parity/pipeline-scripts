@@ -269,7 +269,7 @@ check_cratesio_crate() {
   owners_response="$(curl -sSLf "$owners_url")" || exit_code=$?
   case "$exit_code" in
     22) # 404, crates doesn't exist on crates.io
-      >&2 echo "Crate $crate does not yet exist on crates.io. Please contact release-engineering to reserve the name in advance."
+      >&2 echo "Crate $crate does not yet exist on crates.io, as verified by $owners_url. Please contact release-engineering to reserve the name in advance."
       return 1
     ;;
     0) ;;
@@ -395,7 +395,7 @@ main() {
 
   mkdir -p "$tmp"
   export PATH="$tmp:$PATH"
-  echo "/.tmp" > "$tmp/.gitignore"
+  echo "/.tmp"$'\n'"/pipeline-scripts" > "$tmp/.gitignore"
   git config core.excludesFile "$tmp/.gitignore"
 
   setup_cargo
