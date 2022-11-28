@@ -288,7 +288,7 @@ check_cratesio_crate() {
       found_owner=true
       break
     fi
-  done < <(echo "$owners_logins") || :
+  done < <(echo "$owners_logins")
 
   if [ ! "${found_owner:-}" ]; then
     >&2 echo "Crate $crate was detected from $crate_manifest.
@@ -448,7 +448,7 @@ main() {
     else
       die "Crate name had unexpected format: $crate"
     fi
-  done < <(echo "$spub_publish") || :
+  done < <(echo "$spub_publish")
 
   while IFS= read -r crate; do
     if [[ "$crate" =~ [^[:space:]]+ ]]; then
@@ -456,7 +456,7 @@ main() {
     else
       die "Crate name had unexpected format: $crate"
     fi
-  done < <(echo "$spub_exclude") || :
+  done < <(echo "$spub_exclude")
 
   if [ "$spub_verify_from" ]; then
     args+=(-v "$spub_verify_from")
