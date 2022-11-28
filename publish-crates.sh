@@ -384,7 +384,7 @@ main() {
   # shellcheck disable=SC2153 # lowercase name
   local spub_start_from="${SPUB_START_FROM:-}"
   # shellcheck disable=SC2153 # lowercase name
-  local spub_publish_only="${SPUB_PUBLISH_ONLY:-}"
+  local spub_publish="${SPUB_PUBLISH:-}"
   # shellcheck disable=SC2153 # lowercase name
   local spub_verify_from="${SPUB_VERIFY_FROM:-}"
   # shellcheck disable=SC2153 # lowercase name
@@ -448,7 +448,7 @@ main() {
     else
       die "Crate name had unexpected format: $crate"
     fi
-  done < <(echo "$spub_publish_only") || :
+  done < <(echo "$spub_publish") || :
 
   while IFS= read -r crate; do
     if [[ "$crate" =~ [^[:space:]]+ ]]; then
