@@ -459,52 +459,54 @@ main() {
     fi
   done < <(echo "$spub_exclude")
 
-  local selected_crates
+  # local crates_to_check=()
+  #
+  # while IFS= read -r crate; do
+  #   if [ ! "$crate" ]; then
+  #     continue
+  #   fi
+  #   if [[ "$crate" =~ [^[:space:]]+ ]]; then
+  #     crates_to_check+=("${BASH_REMATCH[0]}")
+  #   else
+  #     die "Crate name had unexpected format: $crate"
+  #   fi
+  # done < <(echo "$spub_publish")
+  #
+  # if [ ${#crates_to_check[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
+  #   for file in "${changed_pr_files[@]}"; do
+  #     local current="$file"
+  #     local prev
+  #     while true; do
+  #       current="$(dirname "$current")"
+  #       case "$current" in
+  #         "${prev:-}"|.)
+  #           break
+  #         ;;
+  #       esac
+  #       prev="$current"
+  #       local manifest_path="$root/$current/Cargo.toml"
+  #       if [ -e "$manifest_path" ]; then
+  #         setup_yj
+  #         local crate_name
+  #         crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
+  #         crates_to_check+=("$crate_name")
+  #         break
+  #       fi
+  #     done
+  #   done
+  #   if [ ${#crates_to_check[*]} -gt 0 ]; then
+  #     subpub_args+=(--include-crates-dependents)
+  #   else
+  #     log "No crate changes were detected for this PR"
+  #     exit
+  #   fi
+  # fi
+  #
+  # for crate_to_check in "${crates_to_check[@]}"; do
+  #   subpub_args+=(-c "$crate_to_check")
+  # done
 
-  while IFS= read -r crate; do
-    if [ ! "$crate" ]; then
-      continue
-    fi
-    if [[ "$crate" =~ [^[:space:]]+ ]]; then
-      selected_crates+=("${BASH_REMATCH[0]}")
-    else
-      die "Crate name had unexpected format: $crate"
-    fi
-  done < <(echo "$spub_publish")
-
-  if [ ${#selected_crates[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
-    for file in "${changed_pr_files[@]}"; do
-      local current="$file"
-      local prev
-      while true; do
-        current="$(dirname "$current")"
-        case "$current" in
-          "${prev:-}"|.)
-            break
-          ;;
-        esac
-        prev="$current"
-        local manifest_path="$root/$current/Cargo.toml"
-        if [ -e "$manifest_path" ]; then
-          setup_yj
-          local crate_name
-          crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
-          selected_crates+=("$crate_name")
-          break
-        fi
-      done
-    done
-    if [ ${#selected_crates[*]} -gt 0 ]; then
-      subpub_args+=(--include-crates-dependents)
-    else
-      log "No crate changes were detected for this PR"
-      exit
-    fi
-  fi
-
-  for selected_crate in "${selected_crates[@]}"; do
-    subpub_args+=(-c "$selected_crate")
-  done
+  subpub_args+=(--start-from substrate-test-client --verify-from substrate-test-client)
 
   subpub "${subpub_args[@]}"
 }
