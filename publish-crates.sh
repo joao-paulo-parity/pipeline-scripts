@@ -304,7 +304,7 @@ $owners_response
   fi
 }
 
-check_cratesio() {
+check_repository() {
   local cratesio_api="$1"
   local cratesio_crates_owner="$2"
   local gh_api="$3"
@@ -342,6 +342,9 @@ check_cratesio() {
     load_workspace_crates
     selected_crates=("${workspace_crates[@]}")
   fi
+
+  # TODO: go further after squatted crates are dealt with (paritytech/release-engineering#132)
+  return
 
   local exit_code
 
@@ -407,12 +410,11 @@ main() {
     ln -s "$(which echo)" "$tmp/log"
   fi
 
-  # TODO: enable when squatted crates are dealt with (paritytech/release-engineering#132)
-  # check_cratesio \
-  #   "$cratesio_api" \
-  #   "$cratesio_crates_owner" \
-  #   "$gh_api" \
-  #   "$this_branch"
+  check_repository \
+    "$cratesio_api" \
+    "$cratesio_crates_owner" \
+    "$gh_api" \
+    "$this_branch"
 
   case "$cratesio_target_instance" in
     local)
@@ -493,7 +495,10 @@ main() {
       done
     done
     if [ ${#selected_crates[*]} -gt 0 ]; then
-      subpub_args+=(--include-crate-parents)
+      subpub_args+=(--include-crates-dependents)
+    else
+      log "No crate changes were detected for this PR"
+      exit
     fi
   fi
 
