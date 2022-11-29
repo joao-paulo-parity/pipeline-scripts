@@ -372,24 +372,31 @@ setup_cargo() {
 }
 
 main() {
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local cratesio_target_instance="$CRATESIO_TARGET_INSTANCE"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local cratesio_crates_owner="$CRATESIO_CRATES_OWNER"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local gh_api="$GH_API"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local cratesio_api="$CRATESIO_API"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local spub_start_from="${SPUB_START_FROM:-}"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local spub_publish="${SPUB_PUBLISH:-}"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local spub_verify_from="${SPUB_VERIFY_FROM:-}"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local spub_after_publish_delay="${SPUB_AFTER_PUBLISH_DELAY:-}"
-  # shellcheck disable=SC2153 # lowercase name
+  # shellcheck disable=SC2153 # lowercase counterpart
   local spub_exclude="${SPUB_EXCLUDE:-}"
+  # shellcheck disable=SC2153 # lowercase counterpart
+  local spub_tmp="$SPUB_TMP"
+
+  if [ "${spub_tmp:: 1}" != '/' ]; then
+    export SPUB_TMP="$PWD/$spub_tmp"
+  fi
+
   local this_branch="$CI_COMMIT_REF_NAME"
 
   mkdir -p "$tmp"
@@ -459,19 +466,19 @@ main() {
     fi
   done < <(echo "$spub_exclude")
 
-  # local crates_to_check=()
-  #
-  # while IFS= read -r crate; do
-  #   if [ ! "$crate" ]; then
-  #     continue
-  #   fi
-  #   if [[ "$crate" =~ [^[:space:]]+ ]]; then
-  #     crates_to_check+=("${BASH_REMATCH[0]}")
-  #   else
-  #     die "Crate name had unexpected format: $crate"
-  #   fi
-  # done < <(echo "$spub_publish")
-  #
+  local crates_to_check=()
+
+  while IFS= read -r crate; do
+    if [ ! "$crate" ]; then
+      continue
+    fi
+    if [[ "$crate" =~ [^[:space:]]+ ]]; then
+      crates_to_check+=("${BASH_REMATCH[0]}")
+    else
+      die "Crate name had unexpected format: $crate"
+    fi
+  done < <(echo "$spub_publish")
+
   # if [ ${#crates_to_check[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
   #   for file in "${changed_pr_files[@]}"; do
   #     local current="$file"
@@ -506,7 +513,7 @@ main() {
   #   subpub_args+=(-c "$crate_to_check")
   # done
 
-  subpub_args+=(--start-from substrate-test-client --verify-from substrate-test-client)
+  subpub_args+=(-c sc-network)
 
   subpub "${subpub_args[@]}"
 }
