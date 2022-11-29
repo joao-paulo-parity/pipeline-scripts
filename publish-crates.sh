@@ -325,9 +325,13 @@ check_repository() {
         case "$changed_file" in
           */Cargo.toml)
             setup_yj
-            local crate_name
-            crate_name="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
-            selected_crates+=("$crate_name" "$changed_file")
+            local publish
+            publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish')"
+            if [ "$publish" != false ]; then
+              local crate_name
+              crate_name="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
+              selected_crates+=("$crate_name" "$changed_file")
+            fi
           ;;
         esac
       fi
@@ -390,11 +394,12 @@ main() {
   local spub_after_publish_delay="${SPUB_AFTER_PUBLISH_DELAY:-}"
   # shellcheck disable=SC2153 # lowercase counterpart
   local spub_exclude="${SPUB_EXCLUDE:-}"
-  # shellcheck disable=SC2153 # lowercase counterpart
-  local spub_tmp="$SPUB_TMP"
 
-  if [ "${spub_tmp:: 1}" != '/' ]; then
-    export SPUB_TMP="$PWD/$spub_tmp"
+  if [ "${SPUB_TMP:-}" ]; then
+    if [ "${SPUB_TMP:: 1}" != '/' ]; then
+      export SPUB_TMP="$PWD/$spub_tmp"
+    fi
+    mkdir -p "$SPUB_TMP"
   fi
 
   local this_branch="$CI_COMMIT_REF_NAME"
