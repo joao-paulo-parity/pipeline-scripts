@@ -518,8 +518,6 @@ main() {
   #   subpub_args+=(-c "$crate_to_check")
   # done
 
-  subpub_args+=(-c sc-network)
-
   subpub "${subpub_args[@]}"
 }
 
