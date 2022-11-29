@@ -397,7 +397,7 @@ main() {
 
   if [ "${SPUB_TMP:-}" ]; then
     if [ "${SPUB_TMP:: 1}" != '/' ]; then
-      export SPUB_TMP="$PWD/$spub_tmp"
+      export SPUB_TMP="$PWD/$SPUB_TMP"
     fi
     mkdir -p "$SPUB_TMP"
   fi
