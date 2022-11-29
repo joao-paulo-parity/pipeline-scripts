@@ -319,28 +319,29 @@ check_repository() {
 
     changed_pr_files=()
     while IFS= read -r diff_line; do
-      if [[ "$diff_line" =~ ^\+\+\+[[:space:]]+b/(.+)$ ]]; then
-        local changed_file="${BASH_REMATCH[1]}"
-        changed_pr_files+=("$changed_file")
-        case "$changed_file" in
-          */Cargo.toml)
-            setup_yj
-            local publish
-            publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish')"
-            case "$publish" in
-              null|true)
-                local crate
-                crate="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
-                selected_crates+=("$crate" "$changed_file")
-              ;;
-              false) ;;
-              *)
-                die "Unexpected value for .package.publish of $changed_file: $publish"
-              ;;
-            esac
-          ;;
-        esac
+      if ! [[ "$diff_line" =~ ^\+\+\+[[:space:]]+b/(.+)$ ]]; then
+        continue
       fi
+      local changed_file="${BASH_REMATCH[1]}"
+      changed_pr_files+=("$changed_file")
+      case "$changed_file" in
+        */Cargo.toml)
+          setup_yj
+          local publish
+          publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish')"
+          case "$publish" in
+            null|true)
+              local crate
+              crate="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
+              selected_crates+=("$crate" "$changed_file")
+            ;;
+            false) ;;
+            *)
+              die "Unexpected value for .package.publish of $changed_file: $publish"
+            ;;
+          esac
+        ;;
+      esac
     done < <(
       curl -sSLf \
         -H "Accept: application/vnd.github.v3.diff" \
