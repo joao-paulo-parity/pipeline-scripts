@@ -326,8 +326,8 @@ check_repository() {
           */Cargo.toml)
             setup_yj
             local publish
-            publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish')"
-            if [ "$publish" != false ]; then
+            publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish // true')"
+            if [ "$publish" == true ]; then
               local crate_name
               crate_name="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
               selected_crates+=("$crate_name" "$changed_file")
@@ -496,12 +496,17 @@ main() {
           ;;
         esac
         prev="$current"
+
         local manifest_path="$root/$current/Cargo.toml"
         if [ -e "$manifest_path" ]; then
           setup_yj
-          local crate_name
-          crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
-          crates_to_check+=("$crate_name")
+          local publish
+          publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish // true')"
+          if [ "$publish" == true ]; then
+            local crate_name
+            crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
+            crates_to_check+=("$crate_name")
+          fi
           break
         fi
       done
