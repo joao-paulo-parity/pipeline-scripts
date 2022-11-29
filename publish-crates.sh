@@ -484,39 +484,39 @@ main() {
     fi
   done < <(echo "$spub_publish")
 
-  # if [ ${#crates_to_check[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
-  #   for file in "${changed_pr_files[@]}"; do
-  #     local current="$file"
-  #     local prev
-  #     while true; do
-  #       current="$(dirname "$current")"
-  #       case "$current" in
-  #         "${prev:-}"|.)
-  #           break
-  #         ;;
-  #       esac
-  #       prev="$current"
-  #       local manifest_path="$root/$current/Cargo.toml"
-  #       if [ -e "$manifest_path" ]; then
-  #         setup_yj
-  #         local crate_name
-  #         crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
-  #         crates_to_check+=("$crate_name")
-  #         break
-  #       fi
-  #     done
-  #   done
-  #   if [ ${#crates_to_check[*]} -gt 0 ]; then
-  #     subpub_args+=(--include-crates-dependents)
-  #   else
-  #     log "No crate changes were detected for this PR"
-  #     exit
-  #   fi
-  # fi
-  #
-  # for crate_to_check in "${crates_to_check[@]}"; do
-  #   subpub_args+=(-c "$crate_to_check")
-  # done
+  if [ ${#crates_to_check[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
+    for file in "${changed_pr_files[@]}"; do
+      local current="$file"
+      local prev
+      while true; do
+        current="$(dirname "$current")"
+        case "$current" in
+          "${prev:-}"|.)
+            break
+          ;;
+        esac
+        prev="$current"
+        local manifest_path="$root/$current/Cargo.toml"
+        if [ -e "$manifest_path" ]; then
+          setup_yj
+          local crate_name
+          crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
+          crates_to_check+=("$crate_name")
+          break
+        fi
+      done
+    done
+    if [ ${#crates_to_check[*]} -gt 0 ]; then
+      subpub_args+=(--include-crates-dependents)
+    else
+      log "No crate changes were detected for this PR"
+      exit
+    fi
+  fi
+
+  for crate_to_check in "${crates_to_check[@]}"; do
+    subpub_args+=(-c "$crate_to_check")
+  done
 
   subpub "${subpub_args[@]}"
 }
