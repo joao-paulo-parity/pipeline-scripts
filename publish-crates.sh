@@ -508,7 +508,7 @@ main() {
         if [ -e "$manifest_path" ]; then
           setup_yj
           local publish
-          publish="$("$yj" -tj < "$manifest_path" | jq -r '.package.publish // true')"
+          publish="$("$yj" -tj < "$manifest_path" | jq -r '.package.publish')"
           case "$publish" in
             null|true)
               local crate
