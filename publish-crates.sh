@@ -335,7 +335,7 @@ check_repository() {
       curl -sSLf \
         -H "Accept: application/vnd.github.v3.diff" \
         -H "Authorization: token $GITHUB_PR_TOKEN" \
-        "$gh_api/repos/$REPO_OWNER/$REPO/pulls/$pr_number/files" \
+        "$gh_api/repos/$REPO_OWNER/$REPO/pulls/$pr_number" \
       || die all "Failed to get diff for PR $pr_number"
     )
   else
