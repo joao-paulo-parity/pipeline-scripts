@@ -326,12 +326,18 @@ check_repository() {
           */Cargo.toml)
             setup_yj
             local publish
-            publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish // true')"
-            if [ "$publish" == true ]; then
-              local crate
-              crate="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
-              selected_crates+=("$crate" "$changed_file")
-            fi
+            publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish')"
+            case "$publish" in
+              null|true)
+                local crate
+                crate="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
+                selected_crates+=("$crate" "$changed_file")
+              ;;
+              false) ;;
+              *)
+                die "Unexpected value for .package.publish of $changed_file: $publish"
+              ;;
+            esac
           ;;
         esac
       fi
@@ -501,26 +507,31 @@ main() {
         if [ -e "$manifest_path" ]; then
           setup_yj
           local publish
-          publish="$("$yj" -tj < "$changed_file" | jq -r '.package.publish // true')"
-          if [ "$publish" == true ]; then
-            local crate
-            crate="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
+          publish="$("$yj" -tj < "$manifest_path" | jq -r '.package.publish // true')"
+          case "$publish" in
+            null|true)
+              local crate
+              crate="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
 
-            local crate_already_inserted
-            for prev_crate_to_check in "${crates_to_check[@]}"; do
-              if [ "$prev_crate_to_check" == "$crate"  ]; then
-                crate_already_inserted=true
-                break
+              local crate_already_inserted
+              for prev_crate_to_check in "${crates_to_check[@]}"; do
+                if [ "$prev_crate_to_check" == "$crate"  ]; then
+                  crate_already_inserted=true
+                  break
+                fi
+              done
+
+              if [ "${crate_already_inserted:-}" ]; then
+                unset crate_already_inserted
+              else
+                crates_to_check+=("$crate")
               fi
-            done
-
-            if [ "${crate_already_inserted:-}" ]; then
-              unset crate_already_inserted
-            else
-              crates_to_check+=("$crate")
-            fi
-          fi
-          break
+            ;;
+            false) ;;
+            *)
+              die "Unexpected value for .package.publish of $manifest_path: $publish"
+            ;;
+          esac
         fi
       done
     done
