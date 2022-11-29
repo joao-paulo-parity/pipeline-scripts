@@ -23,7 +23,6 @@ shopt -s inherit_errexit
 root="$PWD"
 tmp="$root/.tmp"
 cratesio_dir="$tmp/crates.io"
-cargo_home="$tmp/cargo-home"
 cargo_target_dir="$tmp/cargo"
 yj="$tmp/yj"
 
@@ -268,8 +267,8 @@ check_cratesio_crate() {
   local owners_response exit_code
   owners_response="$(curl -sSLf "$owners_url")" || exit_code=$?
   case "$exit_code" in
-    22) # 404, crates doesn't exist on crates.io
-      >&2 echo "Crate $crate does not yet exist on crates.io, as verified by $owners_url. Please contact release-engineering to reserve the name in advance."
+    22) # 404 response, which means that the crate doesn't exist on crates.io
+      >&2 echo "Crate $crate does not yet exist on crates.io, as per $owners_url. Please contact release-engineering to reserve the name in advance."
       return 1
     ;;
     0) ;;
@@ -313,35 +312,39 @@ check_cratesio() {
 
   local selected_crates=()
 
+  # if the branch belongs to a pull request, then check only the changed files
+  # otherwise, assume to be running on master and take all crates into account
   if [[ "$this_branch" =~ ^[[:digit:]]+$ ]]; then
     local pr_number="$this_branch"
 
-    while IFS= read -r changed_file; do
-      case "$changed_file" in
-        */Cargo.toml)
-          setup_yj
-          local crate_name
-          crate_name="$("$yj" -tj < "$changed_file" | jq -r '.package.name')"
-          if [ "$crate_name" == null ]; then
-            die "Failed to parse .package.name of $changed_file"
-          fi
-          selected_crates+=("$crate_name" "$changed_file")
-        ;;
-      esac
+    changed_pr_files=()
+    while IFS= read -r diff_line; do
+      if [[ "$diff_line" =~ ^\+\+\+[[:space:]]+b/(.+)$ ]]; then
+        local changed_file="${BASH_REMATCH[1]}"
+        changed_pr_files+=("$changed_file")
+        case "$changed_file" in
+          */Cargo.toml)
+            setup_yj
+            local crate_name
+            crate_name="$("$yj" -tj < "$changed_file" | jq -e -r '.package.name')"
+            selected_crates+=("$crate_name" "$changed_file")
+          ;;
+        esac
+      fi
     done < <(
-      (
-        curl -sSLf \
-          -H "Authorization: token $GITHUB_PR_TOKEN" \
-          "$gh_api/repos/$REPO_OWNER/$REPO/pulls/$pr_number/files" |
-        jq -r '.[] | .filename'
-      ) || die all "Failed to get changed files for PR $pr_number"
-    ) || :
+      curl -sSLf \
+        -H "Accept: application/vnd.github.v3.diff" \
+        -H "Authorization: token $GITHUB_PR_TOKEN" \
+        "$gh_api/repos/$REPO_OWNER/$REPO/pulls/$pr_number/files" \
+      || die all "Failed to get diff for PR $pr_number"
+    )
   else
     load_workspace_crates
     selected_crates=("${workspace_crates[@]}")
   fi
 
   local exit_code
+
   for ((i=0; i < ${#selected_crates[*]}; i+=2)); do
     local crate="${selected_crates[$i]}"
     local crate_manifest="${selected_crates[$((i+1))]}"
@@ -363,13 +366,6 @@ check_cratesio() {
 setup_cargo() {
   mkdir -p "$cargo_target_dir"
   export PATH="$cargo_target_dir/release:$PATH"
-  # use custom $CARGO_TARGET_DIR because rusty-cachier's setup is not working
-  # e.g. https://gitlab.parity.io/parity/mirrors/substrate/-/jobs/2092904#L7397
-  export CARGO_TARGET_DIR="$cargo_target_dir"
-  # TODO: don't set CARGO_HOME, use rusty-cachier
-  mkdir -p "$cargo_home"
-  export PATH="$cargo_home/bin:$PATH"
-  export CARGO_HOME="$cargo_home"
 }
 
 main() {
@@ -436,10 +432,18 @@ main() {
     ;;
   esac
 
-  local args=(publish --post-check --root "$PWD")
+  local subpub_args=(publish --post-check --root "$PWD")
 
   if [ "$spub_start_from" ]; then
-    args+=(--start-from "$spub_start_from")
+    subpub_args+=(--start-from "$spub_start_from")
+  fi
+
+  if [ "$spub_verify_from" ]; then
+    subpub_args+=(-v "$spub_verify_from")
+  fi
+
+  if [ "$spub_after_publish_delay" ]; then
+    subpub_args+=(--after-publish-delay "$spub_after_publish_delay")
   fi
 
   while IFS= read -r crate; do
@@ -447,32 +451,57 @@ main() {
       continue
     fi
     if [[ "$crate" =~ [^[:space:]]+ ]]; then
-      args+=(-c "${BASH_REMATCH[0]}")
-    else
-      die "Crate name had unexpected format: $crate"
-    fi
-  done < <(echo "$spub_publish")
-
-  while IFS= read -r crate; do
-    if [ ! "$crate" ]; then
-      continue
-    fi
-    if [[ "$crate" =~ [^[:space:]]+ ]]; then
-      args+=(-e "${BASH_REMATCH[0]}")
+      subpub_args+=(-e "${BASH_REMATCH[0]}")
     else
       die "Crate name had unexpected format: $crate"
     fi
   done < <(echo "$spub_exclude")
 
-  if [ "$spub_verify_from" ]; then
-    args+=(-v "$spub_verify_from")
+  local selected_crates
+
+  while IFS= read -r crate; do
+    if [ ! "$crate" ]; then
+      continue
+    fi
+    if [[ "$crate" =~ [^[:space:]]+ ]]; then
+      selected_crates+=("${BASH_REMATCH[0]}")
+    else
+      die "Crate name had unexpected format: $crate"
+    fi
+  done < <(echo "$spub_publish")
+
+  if [ ${#selected_crates[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
+    for file in "${changed_pr_files[@]}"; do
+      local current="$file"
+      local prev
+      while true; do
+        current="$(dirname "$current")"
+        case "$current" in
+          "${prev:-}"|.)
+            break
+          ;;
+        esac
+        prev="$current"
+        local manifest_path="$root/$current/Cargo.toml"
+        if [ -e "$manifest_path" ]; then
+          setup_yj
+          local crate_name
+          crate_name="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
+          selected_crates+=("$crate_name")
+          break
+        fi
+      done
+    done
+    if [ ${#selected_crates[*]} -gt 0 ]; then
+      subpub_args+=(--include-crate-parents)
+    fi
   fi
 
-  if [ "$spub_after_publish_delay" ]; then
-    args+=(--after-publish-delay "$spub_after_publish_delay")
-  fi
+  for selected_crate in "${selected_crates[@]}"; do
+    subpub_args+=(-c "$selected_crate")
+  done
 
-  subpub "${args[@]}"
+  subpub "${subpub_args[@]}"
 }
 
 main "$@"
