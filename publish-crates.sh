@@ -318,10 +318,12 @@ check_repository() {
     local pr_number="$this_branch"
 
     changed_pr_files=()
+    set +x
     while IFS= read -r diff_line; do
       if ! [[ "$diff_line" =~ ^\+\+\+[[:space:]]+b/(.+)$ ]]; then
         continue
       fi
+      set -x
       local changed_file="${BASH_REMATCH[1]}"
       changed_pr_files+=("$changed_file")
       case "$changed_file" in
@@ -349,6 +351,7 @@ check_repository() {
         "$gh_api/repos/$REPO_OWNER/$REPO/pulls/$pr_number" \
       || die all "Failed to get diff for PR $pr_number"
     )
+    set -x
   else
     load_workspace_crates
     selected_crates=("${workspace_crates[@]}")
