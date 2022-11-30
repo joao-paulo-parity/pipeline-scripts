@@ -377,9 +377,14 @@ check_repository() {
   fi
 }
 
-setup_cargo() {
+setup_environment() {
   mkdir -p "$cargo_target_dir"
   export PATH="$cargo_target_dir/release:$PATH"
+}
+
+setup_repository() {
+  echo "/.tmp"$'\n'"/$(dirname "${BASH_SOURCE[0]}")" > "$tmp/.gitignore"
+  git config core.excludesFile "$tmp/.gitignore"
 }
 
 main() {
@@ -401,24 +406,7 @@ main() {
   local spub_after_publish_delay="${SPUB_AFTER_PUBLISH_DELAY:-}"
   # shellcheck disable=SC2153 # lowercase counterpart
   local spub_exclude="${SPUB_EXCLUDE:-}"
-
-  if [ "${SPUB_TMP:-}" ]; then
-    if [ "${SPUB_TMP:: 1}" != '/' ]; then
-      export SPUB_TMP="$PWD/$SPUB_TMP"
-    fi
-    mkdir -p "$SPUB_TMP"
-  fi
-
   local this_branch="$CI_COMMIT_REF_NAME"
-
-  mkdir -p "$tmp"
-  export PATH="$tmp:$PATH"
-  echo "/.tmp"$'\n'"/pipeline-scripts" > "$tmp/.gitignore"
-  git config core.excludesFile "$tmp/.gitignore"
-
-  setup_cargo
-
-  setup_subpub
 
   if [[ $- =~ x ]]; then
     # when -x is set up the logged messages will be printed during execution, so there's no need to
@@ -429,11 +417,88 @@ main() {
     ln -s "$(which echo)" "$tmp/log"
   fi
 
+  mkdir -p "$tmp"
+  export PATH="$tmp:$PATH"
+
+  setup_repository
+
   check_repository \
     "$cratesio_api" \
     "$cratesio_crates_owner" \
     "$gh_api" \
     "$this_branch"
+
+  setup_environment
+
+  setup_subpub
+
+  local subpub_args=(publish --post-check --root "$PWD")
+
+  local crates_to_publish=()
+
+  while IFS= read -r crate; do
+    if [ ! "$crate" ]; then
+      continue
+    fi
+    if [[ "$crate" =~ [^[:space:]]+ ]]; then
+      crates_to_publish+=("${BASH_REMATCH[0]}")
+    else
+      die "Crate name had unexpected format: $crate"
+    fi
+  done < <(echo "$spub_publish")
+
+  if [ ${#crates_to_publish[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
+    for file in "${changed_pr_files[@]}"; do
+      local current="$file"
+      local prev
+      while true; do
+        current="$(dirname "$current")"
+        case "$current" in
+          "${prev:-}"|.)
+            break
+          ;;
+        esac
+        prev="$current"
+
+        local manifest_path="$root/$current/Cargo.toml"
+        if [ -e "$manifest_path" ]; then
+          setup_yj
+          local publish
+          publish="$("$yj" -tj < "$manifest_path" | jq -r '.package.publish')"
+          case "$publish" in
+            null|true)
+              local crate
+              crate="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
+
+              local crate_already_inserted
+              for prev_crate_to_check in "${crates_to_publish[@]}"; do
+                if [ "$prev_crate_to_check" == "$crate"  ]; then
+                  crate_already_inserted=true
+                  break
+                fi
+              done
+
+              if [ "${crate_already_inserted:-}" ]; then
+                unset crate_already_inserted
+              else
+                crates_to_publish+=("$crate")
+              fi
+            ;;
+            false) ;;
+            *)
+              die "Unexpected value for .package.publish of $manifest_path: $publish"
+            ;;
+          esac
+        fi
+      done
+    done
+    if [ ${#crates_to_publish[*]} -gt 0 ]; then
+      subpub_args+=(--include-crates-dependents)
+    else
+      log "No crate changes were detected for this PR"
+      exit
+    fi
+  fi
 
   case "$cratesio_target_instance" in
     local)
@@ -453,7 +518,9 @@ main() {
     ;;
   esac
 
-  local subpub_args=(publish --post-check --root "$PWD")
+  for crate_to_publish in "${crates_to_publish[@]}"; do
+    subpub_args+=(-c "$crate_to_publish")
+  done
 
   if [ "$spub_start_from" ]; then
     subpub_args+=(--start-from "$spub_start_from")
@@ -478,75 +545,12 @@ main() {
     fi
   done < <(echo "$spub_exclude")
 
-  local crates_to_check=()
-
-  while IFS= read -r crate; do
-    if [ ! "$crate" ]; then
-      continue
+  if [ "${SPUB_TMP:-}" ]; then
+    if [ "${SPUB_TMP:: 1}" != '/' ]; then
+      export SPUB_TMP="$PWD/$SPUB_TMP"
     fi
-    if [[ "$crate" =~ [^[:space:]]+ ]]; then
-      crates_to_check+=("${BASH_REMATCH[0]}")
-    else
-      die "Crate name had unexpected format: $crate"
-    fi
-  done < <(echo "$spub_publish")
-
-  if [ ${#crates_to_check[*]} -eq 0 ] && [ "${changed_pr_files:-}" ]; then
-    for file in "${changed_pr_files[@]}"; do
-      local current="$file"
-      local prev
-      while true; do
-        current="$(dirname "$current")"
-        case "$current" in
-          "${prev:-}"|.)
-            break
-          ;;
-        esac
-        prev="$current"
-
-        local manifest_path="$root/$current/Cargo.toml"
-        if [ -e "$manifest_path" ]; then
-          setup_yj
-          local publish
-          publish="$("$yj" -tj < "$manifest_path" | jq -r '.package.publish')"
-          case "$publish" in
-            null|true)
-              local crate
-              crate="$("$yj" -tj < "$manifest_path" | jq -e -r '.package.name')"
-
-              local crate_already_inserted
-              for prev_crate_to_check in "${crates_to_check[@]}"; do
-                if [ "$prev_crate_to_check" == "$crate"  ]; then
-                  crate_already_inserted=true
-                  break
-                fi
-              done
-
-              if [ "${crate_already_inserted:-}" ]; then
-                unset crate_already_inserted
-              else
-                crates_to_check+=("$crate")
-              fi
-            ;;
-            false) ;;
-            *)
-              die "Unexpected value for .package.publish of $manifest_path: $publish"
-            ;;
-          esac
-        fi
-      done
-    done
-    if [ ${#crates_to_check[*]} -gt 0 ]; then
-      subpub_args+=(--include-crates-dependents)
-    else
-      log "No crate changes were detected for this PR"
-      exit
-    fi
+    mkdir -p "$SPUB_TMP"
   fi
-
-  for crate_to_check in "${crates_to_check[@]}"; do
-    subpub_args+=(-c "$crate_to_check")
-  done
 
   subpub "${subpub_args[@]}"
 }
