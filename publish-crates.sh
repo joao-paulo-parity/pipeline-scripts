@@ -378,6 +378,8 @@ check_repository() {
 }
 
 setup_environment() {
+  mkdir -p "$tmp"
+  export PATH="$tmp:$PATH"
   mkdir -p "$cargo_target_dir"
   export PATH="$cargo_target_dir/release:$PATH"
 }
@@ -408,6 +410,8 @@ main() {
   local spub_exclude="${SPUB_EXCLUDE:-}"
   local this_branch="$CI_COMMIT_REF_NAME"
 
+  setup_environment
+
   if [[ $- =~ x ]]; then
     # when -x is set up the logged messages will be printed during execution, so there's no need to
     # also echo them; create a no-op executable for this purpose
@@ -417,9 +421,6 @@ main() {
     ln -s "$(which echo)" "$tmp/log"
   fi
 
-  mkdir -p "$tmp"
-  export PATH="$tmp:$PATH"
-
   setup_repository
 
   check_repository \
@@ -427,8 +428,6 @@ main() {
     "$cratesio_crates_owner" \
     "$gh_api" \
     "$this_branch"
-
-  setup_environment
 
   setup_subpub
 
