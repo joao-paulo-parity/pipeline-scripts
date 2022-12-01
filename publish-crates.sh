@@ -393,6 +393,15 @@ setup_repository() {
 }
 
 main() {
+  local this_branch="$CI_COMMIT_REF_NAME"
+  if [[
+    (! "$this_branch" =~ ^[[:digit:]]+$) &&
+    "$CI_COMMIT_REF_NAME" != "$CI_DEFAULT_BRANCH"
+  ]]; then
+    echo "This check only runs for pull requests or $CI_DEFAULT_BRANCH"
+    exit 0
+  fi
+
   # shellcheck disable=SC2153 # lowercase counterpart
   local cratesio_target_instance="$CRATESIO_TARGET_INSTANCE"
   # shellcheck disable=SC2153 # lowercase counterpart
@@ -411,7 +420,6 @@ main() {
   local spub_after_publish_delay="${SPUB_AFTER_PUBLISH_DELAY:-}"
   # shellcheck disable=SC2153 # lowercase counterpart
   local spub_exclude="${SPUB_EXCLUDE:-}"
-  local this_branch="$CI_COMMIT_REF_NAME"
 
   setup_environment
 
